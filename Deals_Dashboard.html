@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Deal Sourcing Pipeline</title>
+  <style>
+    *{box-sizing:border-box}
+    body{font-family:Arial,sans-serif;background:#0f172a;color:#f8fafc;padding:32px;margin:0}
+    h1{font-size:34px;margin:0 0 4px}
+    .subtitle{color:#94a3b8;margin-bottom:28px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;margin-bottom:22px}
+    .card{background:#1e293b;border:1px solid #334155;border-radius:16px;padding:20px}
+    .card h3{margin:0;color:#94a3b8;font-size:13px;text-transform:uppercase;letter-spacing:.04em}
+    .big{font-size:34px;font-weight:700;margin-top:10px}
+    .section{margin-top:28px}
+    select,button{padding:10px;border-radius:8px;border:1px solid #334155;background:#1e293b;color:white;margin-right:8px;margin-bottom:8px}
+    button{cursor:pointer;background:#7c3aed;border-color:#7c3aed}
+    button:disabled{opacity:.4;cursor:not-allowed}
+    table{width:100%;border-collapse:collapse;margin-top:16px;background:#1e293b;border-radius:12px;overflow:hidden;font-size:13px}
+    th,td{padding:10px;border-bottom:1px solid #334155;text-align:left;vertical-align:top}
+    th{background:#334155;white-space:nowrap}
+    .bar-wrap{background:#334155;border-radius:999px;height:10px;margin-top:6px}
+    .bar{background:#a78bfa;height:10px;border-radius:999px}
+    .dist-row{margin:12px 0}
+    .muted{color:#94a3b8}
+    .table-wrap{overflow-x:auto}
+    .status{margin:12px 0 0;color:#94a3b8;font-size:13px}
+    .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#334155;color:#e2e8f0;font-size:12px}
+    .pager{display:flex;align-items:center;gap:10px;margin-top:14px;color:#94a3b8;font-size:13px}
+  </style>
+</head>
+
+<body>
+  <h1>Deal Sourcing Pipeline</h1>
+  <div class="subtitle">Business-for-sale Deals - March 2, 2026 - onwards</div>
+
+  <div class="grid">
+    <div class="card"><h3>📊 Total Deals</h3><div class="big" id="totalDeals">-</div></div>
+    <div class="card"><h3>✅ Active Deals</h3><div class="big" id="activeDeals">-</div></div>
+    <div class="card"><h3>🔒 Closed Deals</h3><div class="big" id="closedDeals">-</div></div>
+  </div>
+
+  <div class="card">
+    <h3>Filters</h3><br>
+    <select id="stateFilter"></select>
+    <select id="industryFilter"></select>
+    <select id="scoreFilter"></select>
+    <button onclick="resetFilters()">Reset Filters</button>
+    <div class="status" id="statusText">Loading data...</div>
+  </div>
+
+  <div class="section grid">
+    <div class="card"><h3>📍 State Distribution</h3><div id="stateDist"></div></div>
+    <div class="card"><h3>🏭 Industry Distribution</h3><div id="industryDist"></div></div>
+    <div class="card"><h3>🔎 Sub-Industry / Niche</h3><div id="subIndustryDist"></div></div>
+    <div class="card"><h3>🏢 Business Type</h3><div id="businessTypeDist"></div></div>
+    <div class="card"><h3>📝 Reason for Sale</h3><div id="reasonDist"></div></div>
+  </div>
+
+  <div class="section card">
+    <h3>Active Deals Table</h3>
+    <div class="table-wrap"><table id="activeTable"></table></div>
+    <div class="pager" id="activePager"></div>
+  </div>
+
+  <div class="section card">
+    <h3>Closed Deals Table</h3>
+    <div class="table-wrap"><table id="closedTable"></table></div>
+    <div class="pager" id="closedPager"></div>
+  </div>
+
+<script>
+const API_URL = "https://script.google.com/macros/s/AKfycby0y862D-xO-qoiL1l-gRBiOzjxdKBjniexjPVbbg3NiAbG7-sE2MmpnselZMhiBMbI/exec";
+
+let allDeals = [];
+let filteredDeals = [];
+let currentPages = {
+  activeTable: 1,
+  closedTable: 1
+};
+
+const ROWS_PER_PAGE = 5;
+
+function clean(v){
+  return v === undefined || v === null || v === "" ? "Unknown" : v;
+}
+
+function blankIfEmpty(v){
+  return v === undefined || v === null || v === "" ? "" : v;
+}
+
+function formatDate(v){
+  const d = new Date(v);
+  if(isNaN(d)) return clean(v);
+
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const yyyy = d.getFullYear();
+
+  return `${mm}-${dd}-${yyyy}`;
+}
+
+function money(v){
+  if(v === undefined || v === null || v === "") return "";
+  const n = Number(String(v).replace(/[^0-9.-]/g,""));
+  return isNaN(n) ? v : "$" + n.toLocaleString();
+}
+
+function twoDecimals(v){
+  const n = Number(v);
+  return isNaN(n) ? blankIfEmpty(v) : n.toFixed(2);
+}
+
+function statusText(d){
+  return String(d["Deal Status (Live / Likely Live / Unknown / Closed)"] || "").trim().toLowerCase();
+}
+
+function isClosed(d){
+  const s = statusText(d);
+  return s === "closed" || s.includes("closed");
+}
+
+function isActive(d){
+  const s = statusText(d);
+  return s === "live" || s === "likely live";
+}
+
+function dateValue(d){
+  return new Date(d["Date Added"] || 0).getTime() || 0;
+}
+
+async function loadDeals(){
+  try{
+    const response = await fetch(API_URL);
+    const data = await response.json();
+
+    allDeals = data.deals || [];
+    filteredDeals = allDeals;
+
+    setupFilters();
+    render();
+
+    document.getElementById("statusText").innerText = "Connected. Showing " + allDeals.length + " deals.";
+  }catch(e){
+    document.getElementById("statusText").innerText = "Error loading data: " + e.message;
+  }
+}
+
+function setupFilters(){
+  fillSelect("stateFilter", "All States", "State");
+  fillSelect("industryFilter", "All Industries", "Industry");
+  fillScoreFilter();
+
+  ["stateFilter","industryFilter","scoreFilter"].forEach(id=>{
+    document.getElementById(id).addEventListener("change", applyFilters);
+  });
+}
+
+function fillSelect(id, label, field){
+  const select = document.getElementById(id);
+  const values = [...new Set(allDeals.map(d => clean(d[field])))]
+    .filter(v => v !== "Unknown")
+    .sort();
+
+  select.innerHTML = `<option value="all">${label}</option>`;
+  values.forEach(v => {
+    select.innerHTML += `<option value="${String(v).replace(/"/g,'&quot;')}">${v}</option>`;
+  });
+}
+
+function fillScoreFilter(){
+  document.getElementById("scoreFilter").innerHTML = `
+    <option value="all">All Scores</option>
+    <option value="6">6</option>
+    <option value="5">5+</option>
+    <option value="4">4+</option>
+    <option value="3">3+</option>
+  `;
+}
+
+function applyFilters(){
+  const state = document.getElementById("stateFilter").value;
+  const industry = document.getElementById("industryFilter").value;
+  const scoreMin = document.getElementById("scoreFilter").value;
+
+  filteredDeals = allDeals.filter(d => {
+    if(state !== "all" && clean(d["State"]) !== state) return false;
+    if(industry !== "all" && clean(d["Industry"]) !== industry) return false;
+    if(scoreMin !== "all" && Number(d["Criteria Total (6 max)"] || 0) < Number(scoreMin)) return false;
+    return true;
+  });
+
+  currentPages.activeTable = 1;
+  currentPages.closedTable = 1;
+
+  render();
+}
+
+function resetFilters(){
+  document.getElementById("stateFilter").value = "all";
+  document.getElementById("industryFilter").value = "all";
+  document.getElementById("scoreFilter").value = "all";
+
+  filteredDeals = allDeals;
+  currentPages.activeTable = 1;
+  currentPages.closedTable = 1;
+
+  render();
+}
+
+function render(){
+  const active = filteredDeals.filter(isActive).sort((a,b)=>dateValue(b)-dateValue(a));
+  const closed = filteredDeals.filter(isClosed).sort((a,b)=>dateValue(b)-dateValue(a));
+
+  document.getElementById("totalDeals").innerText = filteredDeals.length;
+  document.getElementById("activeDeals").innerText = active.length;
+  document.getElementById("closedDeals").innerText = closed.length;
+
+  renderDistribution("stateDist", "State");
+  renderDistribution("industryDist", "Industry");
+  renderDistribution("subIndustryDist", "Sub-Industry / Niche");
+  renderDistribution("businessTypeDist", "Business Type (Physical / Online / Hybrid)");
+  renderDistribution("reasonDist", "Reason for Sale");
+
+  renderDealTable("activeTable", "activePager", active);
+  renderDealTable("closedTable", "closedPager", closed);
+}
+
+function renderDistribution(id, field){
+  const box = document.getElementById(id);
+  const total = filteredDeals.length || 1;
+  const counts = {};
+
+  filteredDeals.forEach(d => {
+    const key = clean(d[field]);
+    counts[key] = (counts[key] || 0) + 1;
+  });
+
+  const rows = Object.entries(counts)
+    .sort((a,b)=>b[1]-a[1])
+    .slice(0,8);
+
+  box.innerHTML = rows.length ? rows.map(([name,count]) => {
+    const pct = ((count / total) * 100).toFixed(1);
+    return `
+      <div class="dist-row">
+        <strong>${name}</strong> <span class="muted">${count} | ${pct}%</span>
+        <div class="bar-wrap"><div class="bar" style="width:${pct}%"></div></div>
+      </div>
+    `;
+  }).join("") : `<span class="muted">No data</span>`;
+}
+
+function renderDealTable(tableId, pagerId, deals){
+  const table = document.getElementById(tableId);
+  const pager = document.getElementById(pagerId);
+
+  const totalPages = Math.max(1, Math.ceil(deals.length / ROWS_PER_PAGE));
+  const currentPage = Math.min(currentPages[tableId], totalPages);
+  currentPages[tableId] = currentPage;
+
+  const start = (currentPage - 1) * ROWS_PER_PAGE;
+  const visibleDeals = deals.slice(start, start + ROWS_PER_PAGE);
+
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th>Date Added</th>
+        <th>Business Name</th>
+        <th>State</th>
+        <th>Industry</th>
+        <th>Asking Price</th>
+        <th>Revenue</th>
+        <th>DAS</th>
+        <th>Cash Flow/SDE</th>
+        <th>Payback Years</th>
+        <th>Strong Cash Flow</th>
+        <th>Scalable</th>
+        <th>Simple</th>
+        <th>Overlooked</th>
+        <th>Engaging</th>
+        <th>Actionable</th>
+        <th>Score Total</th>
+        <th>One-Line Summary</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${visibleDeals.map(d => `
+        <tr>
+          <td>${formatDate(d["Date Added"])}</td>
+          <td>${clean(d["Business Name / Headline"])}</td>
+          <td>${clean(d["State"])}</td>
+          <td>${clean(d["Industry"])}</td>
+          <td>${money(d["Asking Price"])}</td>
+          <td>${money(d["Revenue (TTM or Stated)"])}</td>
+          <td>${money(d["Daily Average Sale (DAS)"])}</td>
+          <td>${money(d["Cash Flow / SDE"])}</td>
+          <td>${twoDecimals(d["Rough Payback (Years)"])}</td>
+          <td>${blankIfEmpty(d["STRONG CASH FLOW"])}</td>
+          <td>${blankIfEmpty(d["SCALABLE"])}</td>
+          <td>${blankIfEmpty(d["SIMPLE"])}</td>
+          <td>${blankIfEmpty(d["OVERLOOKED"])}</td>
+          <td>${blankIfEmpty(d["ENGAGING"])}</td>
+          <td>${blankIfEmpty(d["ACTIONABLE"])}</td>
+          <td><span class="pill">${blankIfEmpty(d["Criteria Total (6 max)"])}</span></td>
+          <td>${clean(d["One-Line Deal Summary"])}</td>
+        </tr>
+      `).join("")}
+    </tbody>
+  `;
+
+  pager.innerHTML = `
+    <button onclick="changePage('${tableId}', -1)" ${currentPage === 1 ? "disabled" : ""}>Previous</button>
+    <span>Page ${currentPage} of ${totalPages} | Showing ${visibleDeals.length} of ${deals.length}</span>
+    <button onclick="changePage('${tableId}', 1)" ${currentPage === totalPages ? "disabled" : ""}>Next</button>
+  `;
+}
+
+function changePage(tableId, direction){
+  currentPages[tableId] += direction;
+  render();
+}
+
+loadDeals();
+</script>
+</body>
+</html>
