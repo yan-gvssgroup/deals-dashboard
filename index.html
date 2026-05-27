@@ -185,9 +185,6 @@ function parseMoney(v){
 }
 
 
-
-
-
 function numberValue(v){
   if(v === undefined || v === null || v === "") return null;
   const cleaned = String(v).replace(/[^0-9.\-]/g, "").trim();
@@ -201,21 +198,10 @@ function scoreMatchesBand(rawScore, selectedBand){
   const score = numberValue(rawScore);
   if(score === null) return false;
 
-  if(selectedBand === "6"){
-    return score === 6;
-  }
-
-  if(selectedBand === "5"){
-    return score >= 5 && score < 6;
-  }
-
-  if(selectedBand === "4"){
-    return score >= 4 && score < 5;
-  }
-
-  if(selectedBand === "3"){
-    return score >= 3 && score < 4;
-  }
+  if(selectedBand === "6") return score === 6;
+  if(selectedBand === "5") return score >= 5 && score < 6;
+  if(selectedBand === "4") return score >= 4 && score < 5;
+  if(selectedBand === "3") return score >= 3 && score < 4;
 
   return true;
 }
@@ -371,7 +357,7 @@ function fillSelect(id, label, field, selectedValue = "all"){
   select.value = [...select.options].some(o => o.value === selectedValue) ? selectedValue : "all";
 }
 
-function fillScoreFilter(selectedValue = "all"){
+function fillScoreFilter(){
   document.getElementById("scoreFilter").innerHTML = `
     <option value="all">All Scores</option>
     <option value="6">6</option>
@@ -379,7 +365,6 @@ function fillScoreFilter(selectedValue = "all"){
     <option value="4">4+</option>
     <option value="3">3+</option>
   `;
-  document.getElementById("scoreFilter").value = selectedValue;
 }
 
 function fillMoneyFilter(id, label, selectedValue = "all"){
@@ -409,8 +394,8 @@ function applyFilters(){
 
     if(!scoreMatchesBand(d["Criteria Total (6 max)"], scoreFilter)) return false;
 
+    const asking = numberValue(d["Asking Price"]);
     if(askingFilter !== "all"){
-      const asking = numberValue(d["Asking Price"]);
       if(asking === null) return false;
       if(askingFilter === "under250" && asking >= 250000) return false;
       if(askingFilter === "250to500" && (asking < 250000 || asking >= 500000)) return false;
@@ -418,8 +403,8 @@ function applyFilters(){
       if(askingFilter === "over1m" && asking < 1000000) return false;
     }
 
+    const cashFlow = numberValue(d["Cash Flow / SDE"]);
     if(cashFlowFilter !== "all"){
-      const cashFlow = numberValue(d["Cash Flow / SDE"]);
       if(cashFlow === null) return false;
       if(cashFlowFilter === "under100" && cashFlow >= 100000) return false;
       if(cashFlowFilter === "100to250" && (cashFlow < 100000 || cashFlow >= 250000)) return false;
@@ -432,7 +417,6 @@ function applyFilters(){
 
   currentPages.activeTable = 1;
   currentPages.closedTable = 1;
-
   render();
 }
 
@@ -586,37 +570,6 @@ function renderDealTable(tableId, pagerId, deals){
 
   const start = (currentPage - 1) * ROWS_PER_PAGE;
   const visibleDeals = deals.slice(start, start + ROWS_PER_PAGE);
-
-  if(deals.length === 0){
-    table.innerHTML = `
-      <thead>
-        <tr>
-          <th>Date Added</th>
-          <th>Business Name</th>
-          <th>State</th>
-          <th>Industry</th>
-          <th>Asking Price</th>
-          <th>Revenue</th>
-          <th>DAS</th>
-          <th>Cash Flow/SDE</th>
-          <th>Payback Years</th>
-          <th>Strong Cash Flow</th>
-          <th>Scalable</th>
-          <th>Simple</th>
-          <th>Overlooked</th>
-          <th>Engaging</th>
-          <th>Actionable</th>
-          <th>Score Total</th>
-          <th>One-Line Summary</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr><td colspan="17" class="muted">No deals match the selected filters.</td></tr>
-      </tbody>
-    `;
-    pager.innerHTML = `<span>Page 0 of 0 | Showing 0 of 0</span>`;
-    return;
-  }
 
   table.innerHTML = `
     <thead>
