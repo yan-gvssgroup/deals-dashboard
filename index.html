@@ -56,33 +56,17 @@
       .filter-grid{grid-template-columns:1fr}
     }
   
-    .topbar{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:22px}
-    .refresh-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
-    .refresh-note{color:#94a3b8;font-size:13px}
-    .dot{width:10px;height:10px;background:#22c55e;border-radius:999px;box-shadow:0 0 10px #22c55e;display:inline-block}
     .section-title{margin:0 0 16px;color:#94a3b8;font-size:13px;text-transform:uppercase;letter-spacing:.04em}
-    .filter-card{margin-top:22px}
-    .filter-grid{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr)) auto;gap:10px;align-items:center}
     .dist-grid-top{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
     .dist-grid-bottom{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
-    .chart-card{min-height:420px}
-    .chart-wrap{position:relative;height:300px;margin-top:10px}
-    .dist-scroll{max-height:330px;overflow:auto;padding-right:4px}
-    .table-card{margin-top:28px}
-    .card.full{width:100%}
-    @media (max-width: 1100px){
-      .filter-grid{grid-template-columns:repeat(2,1fr)}
-      .filter-grid button{grid-column:1/-1}
+    .dist-scroll{max-height:360px;overflow:auto;padding-right:4px}
+    @media (max-width: 1000px){
       .dist-grid-top,.dist-grid-bottom{grid-template-columns:1fr}
-      .chart-wrap{height:260px}
     }
     @media (max-width: 700px){
       body{padding:18px}
       h1{font-size:28px}
-      .topbar{flex-direction:column}
-      .refresh-controls{justify-content:flex-start;width:100%}
       .grid{grid-template-columns:1fr}
-      .filter-grid{grid-template-columns:1fr}
       select,button{width:100%;margin-right:0}
       .card{padding:16px}
       table{font-size:12px}
@@ -90,7 +74,6 @@
     }
 
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
@@ -115,7 +98,6 @@
     <div class="card"><h3>Total Deals</h3><div class="big" id="totalDeals">-</div></div>
     <div class="card"><h3>Active Deals</h3><div class="big" id="activeDeals">-</div></div>
     <div class="card"><h3>Closed Deals</h3><div class="big" id="closedDeals">-</div></div>
-    <div class="card"><h3>Top Score Active</h3><div class="big" id="topScore">-</div></div>
   </div>
 
   <div class="card">
@@ -129,6 +111,8 @@
       <button onclick="resetFilters()">Reset Filters</button>
     </div>
     <div class="status" id="statusText">Loading data...</div>
+
+  
   <div class="section">
     <h3 class="section-title">Distribution Snapshot</h3>
     <div class="dist-grid-top">
@@ -140,18 +124,18 @@
 
   <div class="section">
     <div class="dist-grid-bottom">
-      <div class="card chart-card"><h3>Industry Distribution</h3><div class="chart-wrap"><canvas id="industryChart"></canvas></div></div>
-      <div class="card chart-card"><h3>Sub-Industry / Niche</h3><div class="chart-wrap"><canvas id="nicheChart"></canvas></div></div>
+      <div class="card"><h3>Industry Distribution</h3><div class="dist-scroll" id="industryDist"></div></div>
+      <div class="card"><h3>Sub-Industry / Niche</h3><div class="dist-scroll" id="subIndustryDist"></div></div>
     </div>
   </div>
 
-  <div class="section card table-card">
+  <div class="section card">
     <h3>Active Deals Table</h3>
     <div class="table-wrap"><table id="activeTable"></table></div>
     <div class="pager" id="activePager"></div>
   </div>
 
-  <div class="section card table-card">
+  <div class="section card">
     <h3>Closed Deals Table</h3>
     <div class="table-wrap"><table id="closedTable"></table></div>
     <div class="pager" id="closedPager"></div>
@@ -162,8 +146,6 @@ const API_URL = "https://script.google.com/macros/s/AKfycby0y862D-xO-qoiL1l-gRBi
 
 let allDeals = [];
 let filteredDeals = [];
-let industryChartInstance = null;
-let nicheChartInstance = null;
 let currentPages = {
   activeTable: 1,
   closedTable: 1
@@ -385,91 +367,17 @@ function render(){
   document.getElementById("totalDeals").innerText = filteredDeals.length;
   document.getElementById("activeDeals").innerText = active.length;
   document.getElementById("closedDeals").innerText = closed.length;
-  document.getElementById("topScore").innerText = topActiveScore || "-";
 
 
   renderDistribution("stateDist", "State");
+  renderDistribution("industryDist", "Industry");
+  renderDistribution("subIndustryDist", "Sub-Industry / Niche");
   renderDistribution("businessTypeDist", "Business Type (Physical / Online / Hybrid)");
   renderDistribution("reasonDist", "Reason for Sale");
-  renderPieChart("industryChart", "Industry");
-  renderPieChart("nicheChart", "Sub-Industry / Niche", 12);
 
   renderDealTable("activeTable", "activePager", active);
   renderDealTable("closedTable", "closedPager", closed);
 }
-
-
-function getDistributionRows(field, limit){
-  const counts = {};
-  filteredDeals.forEach(d => {
-    const key = clean(d[field]);
-    counts[key] = (counts[key] || 0) + 1;
-  });
-
-  let rows = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
-  if(limit && rows.length > limit){
-    const shown = rows.slice(0, limit - 1);
-    const otherCount = rows.slice(limit - 1).reduce((sum, row) => sum + row[1], 0);
-    rows = [...shown, ["Other", otherCount]];
-  }
-  return rows;
-}
-
-function renderPieChart(canvasId, field, limit){
-  const canvas = document.getElementById(canvasId);
-  if(!canvas) return;
-
-  if(typeof Chart === "undefined"){
-    canvas.parentElement.innerHTML = '<div class="muted">Chart library still loading. Please refresh if this persists.</div>';
-    return;
-  }
-
-  const rows = getDistributionRows(field, limit);
-  const labels = rows.map(row => row[0]);
-  const values = rows.map(row => row[1]);
-
-  const existing = canvasId === "industryChart" ? industryChartInstance : nicheChartInstance;
-  if(existing) existing.destroy();
-
-  const chart = new Chart(canvas, {
-    type: "doughnut",
-    data: {
-      labels,
-      datasets: [{
-        data: values,
-        borderWidth: 1
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: window.innerWidth < 700 ? "bottom" : "right",
-          labels: {
-            color: "#e2e8f0",
-            boxWidth: 12,
-            font: { size: 11 }
-          }
-        },
-        tooltip: {
-          callbacks: {
-            label: function(context){
-              const total = values.reduce((a,b)=>a+b,0) || 1;
-              const value = context.parsed;
-              const pct = ((value / total) * 100).toFixed(1);
-              return `${context.label}: ${value} | ${pct}%`;
-            }
-          }
-        }
-      }
-    }
-  });
-
-  if(canvasId === "industryChart") industryChartInstance = chart;
-  if(canvasId === "nicheChart") nicheChartInstance = chart;
-}
-
 
 function renderDistribution(id, field){
   const box = document.getElementById(id);
