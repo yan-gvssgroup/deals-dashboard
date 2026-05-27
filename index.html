@@ -94,12 +94,12 @@
       <button onclick="resetFilters()">Reset Filters</button>
     </div>
     <div class="status" id="statusText">Loading data...</div>
-  </div>
 
-  
-  </div>
-
-  </div>
+  <div class="section dist-grid">
+    <div class="card"><h3>State Distribution</h3><div class="dist-scroll" id="stateDist"></div></div>
+    <div class="card"><h3>Industry Distribution</h3><div class="dist-scroll" id="industryDist"></div></div>
+    <div class="card"><h3>Sub-Industry / Niche</h3><div class="dist-scroll" id="subIndustryDist"></div></div>
+    <div class="card"><h3>Business Type</h3><div class="dist-scroll" id="businessTypeDist"></div></div>
     <div class="card"><h3>Reason for Sale</h3><div class="dist-scroll" id="reasonDist"></div></div>
   </div>
 
@@ -343,8 +343,6 @@ function render(){
   document.getElementById("closedDeals").innerText = closed.length;
   document.getElementById("topScore").innerText = topActiveScore || "-";
 
-  renderTopDeals("latestDeals", active.slice(0,5));
-  renderTopDeals("highestScoreDeals", [...active].sort((a,b)=>scoreValue(b)-scoreValue(a) || dateValue(b)-dateValue(a)).slice(0,5));
 
   renderDistribution("stateDist", "State");
   renderDistribution("industryDist", "Industry");
@@ -354,25 +352,6 @@ function render(){
 
   renderDealTable("activeTable", "activePager", active);
   renderDealTable("closedTable", "closedPager", closed);
-}
-
-function renderTopDeals(id, deals){
-  const box = document.getElementById(id);
-  if(!deals.length){
-    box.innerHTML = `<span class="muted">No active deals found.</span>`;
-    return;
-  }
-
-  box.innerHTML = deals.map(d => `
-    <div class="deal-tile">
-      <div class="deal-title">${clean(d["Business Name / Headline"])}</div>
-      <div class="deal-meta">
-        ${formatDate(d["Date Added"])} | ${clean(d["State"])} | ${clean(d["Industry"])}<br>
-        Asking: ${money(d["Asking Price"])} | SDE: ${money(d["Cash Flow / SDE"])}<br>
-        Score: <span class="pill">${blankIfEmpty(d["Criteria Total (6 max)"]) || "-"}</span>
-      </div>
-    </div>
-  `).join("");
 }
 
 function renderDistribution(id, field){
