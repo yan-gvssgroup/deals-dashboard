@@ -186,11 +186,38 @@ function parseMoney(v){
 
 
 
+
+
 function numberValue(v){
-  if(v === undefined || v === null || v === "") return 0;
+  if(v === undefined || v === null || v === "") return null;
   const cleaned = String(v).replace(/[^0-9.\-]/g, "").trim();
   const n = parseFloat(cleaned);
-  return isNaN(n) ? 0 : n;
+  return isNaN(n) ? null : n;
+}
+
+function scoreMatchesBand(rawScore, selectedBand){
+  if(selectedBand === "all") return true;
+
+  const score = numberValue(rawScore);
+  if(score === null) return false;
+
+  if(selectedBand === "6"){
+    return score === 6;
+  }
+
+  if(selectedBand === "5"){
+    return score >= 5 && score < 6;
+  }
+
+  if(selectedBand === "4"){
+    return score >= 4 && score < 5;
+  }
+
+  if(selectedBand === "3"){
+    return score >= 3 && score < 4;
+  }
+
+  return true;
 }
 
 function escapeHtml(value){
@@ -369,29 +396,44 @@ function fillMoneyFilter(id, label, selectedValue = "all"){
   select.value = [...select.options].some(o => o.value === selectedValue) ? selectedValue : "all";
 }
 
-function applyFilters(resetPage = true){
+function applyFilters(){
   const state = document.getElementById("stateFilter").value;
   const industry = document.getElementById("industryFilter").value;
-  const scoreMin = document.getElementById("scoreFilter").value;
-  const askingPriceRange = document.getElementById("askingPriceFilter").value;
-  const cashFlowRange = document.getElementById("cashFlowFilter").value;
+  const scoreFilter = document.getElementById("scoreFilter").value;
+  const askingFilter = document.getElementById("askingPriceFilter").value;
+  const cashFlowFilter = document.getElementById("cashFlowFilter").value;
 
   filteredDeals = allDeals.filter(d => {
     if(state !== "all" && clean(d["State"]) !== state) return false;
     if(industry !== "all" && clean(d["Industry"]) !== industry) return false;
-    if(scoreMin !== "all" && scoreValue(d) < Number(scoreMin)) return false;
-    if(!filterByRange(d["Asking Price"], askingPriceRange)) return false;
-    if(!filterByRange(d["Cash Flow / SDE"], cashFlowRange)) return false;
+
+    if(!scoreMatchesBand(d["Criteria Total (6 max)"], scoreFilter)) return false;
+
+    if(askingFilter !== "all"){
+      const asking = numberValue(d["Asking Price"]);
+      if(asking === null) return false;
+      if(askingFilter === "under250" && asking >= 250000) return false;
+      if(askingFilter === "250to500" && (asking < 250000 || asking >= 500000)) return false;
+      if(askingFilter === "500to1m" && (asking < 500000 || asking >= 1000000)) return false;
+      if(askingFilter === "over1m" && asking < 1000000) return false;
+    }
+
+    if(cashFlowFilter !== "all"){
+      const cashFlow = numberValue(d["Cash Flow / SDE"]);
+      if(cashFlow === null) return false;
+      if(cashFlowFilter === "under100" && cashFlow >= 100000) return false;
+      if(cashFlowFilter === "100to250" && (cashFlow < 100000 || cashFlow >= 250000)) return false;
+      if(cashFlowFilter === "250to500" && (cashFlow < 250000 || cashFlow >= 500000)) return false;
+      if(cashFlowFilter === "over500" && cashFlow < 500000) return false;
+    }
+
     return true;
   });
 
-  if(resetPage){
-    currentPages.activeTable = 1;
-    currentPages.closedTable = 1;
-  }
+  currentPages.activeTable = 1;
+  currentPages.closedTable = 1;
 
   render();
-  document.getElementById("statusText").innerText = "Connected. Showing " + filteredDeals.length + " of " + allDeals.length + " deals.";
 }
 
 function resetFilters(){
