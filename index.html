@@ -192,6 +192,22 @@ function numberValue(v){
   return isNaN(n) ? null : n;
 }
 
+
+function moneyRangeMatches(rawValue, selectedRange){
+  if(selectedRange === "all") return true;
+
+  const value = numberValue(rawValue);
+  if(value === null) return false;
+
+  const parts = String(selectedRange).split("-");
+  const min = Number(parts[0]);
+  const max = parts[1] === "max" ? Infinity : Number(parts[1]);
+
+  if(isNaN(min) || isNaN(max)) return true;
+
+  return value >= min && value < max;
+}
+
 function scoreMatchesBand(rawScore, selectedBand){
   if(selectedBand === "all") return true;
 
@@ -393,24 +409,8 @@ function applyFilters(){
     if(industry !== "all" && clean(d["Industry"]) !== industry) return false;
 
     if(!scoreMatchesBand(d["Criteria Total (6 max)"], scoreFilter)) return false;
-
-    const asking = numberValue(d["Asking Price"]);
-    if(askingFilter !== "all"){
-      if(asking === null) return false;
-      if(askingFilter === "under250" && asking >= 250000) return false;
-      if(askingFilter === "250to500" && (asking < 250000 || asking >= 500000)) return false;
-      if(askingFilter === "500to1m" && (asking < 500000 || asking >= 1000000)) return false;
-      if(askingFilter === "over1m" && asking < 1000000) return false;
-    }
-
-    const cashFlow = numberValue(d["Cash Flow / SDE"]);
-    if(cashFlowFilter !== "all"){
-      if(cashFlow === null) return false;
-      if(cashFlowFilter === "under100" && cashFlow >= 100000) return false;
-      if(cashFlowFilter === "100to250" && (cashFlow < 100000 || cashFlow >= 250000)) return false;
-      if(cashFlowFilter === "250to500" && (cashFlow < 250000 || cashFlow >= 500000)) return false;
-      if(cashFlowFilter === "over500" && cashFlow < 500000) return false;
-    }
+    if(!moneyRangeMatches(d["Asking Price"], askingFilter)) return false;
+    if(!moneyRangeMatches(d["Cash Flow / SDE"], cashFlowFilter)) return false;
 
     return true;
   });
