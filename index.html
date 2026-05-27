@@ -343,7 +343,7 @@ function applyFilters(resetPage = true){
   filteredDeals = allDeals.filter(d => {
     if(state !== "all" && clean(d["State"]) !== state) return false;
     if(industry !== "all" && clean(d["Industry"]) !== industry) return false;
-    if(scoreMin !== "all" && scoreValue(d) < Number(scoreMin)) return false;
+    if(scoreMin !== "all" && !scoreBandMatch(d["Criteria Total (6 max)"], scoreMin)) return false;
     if(!filterByRange(d["Asking Price"], askingPriceRange)) return false;
     if(!filterByRange(d["Cash Flow / SDE"], cashFlowRange)) return false;
     return true;
