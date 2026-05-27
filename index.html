@@ -162,6 +162,8 @@ const API_URL = "https://script.google.com/macros/s/AKfycby0y862D-xO-qoiL1l-gRBi
 
 let allDeals = [];
 let filteredDeals = [];
+let industryChartInstance = null;
+let nicheChartInstance = null;
 let currentPages = {
   activeTable: 1,
   closedTable: 1
@@ -415,7 +417,12 @@ function getDistributionRows(field, limit){
 
 function renderPieChart(canvasId, field, limit){
   const canvas = document.getElementById(canvasId);
-  if(!canvas || typeof Chart === "undefined") return;
+  if(!canvas) return;
+
+  if(typeof Chart === "undefined"){
+    canvas.parentElement.innerHTML = '<div class="muted">Chart library still loading. Please refresh if this persists.</div>';
+    return;
+  }
 
   const rows = getDistributionRows(field, limit);
   const labels = rows.map(row => row[0]);
