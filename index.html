@@ -2,19 +2,25 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Deal Sourcing Pipeline</title>
   <style>
     *{box-sizing:border-box}
     body{font-family:Arial,sans-serif;background:#0f172a;color:#f8fafc;padding:32px;margin:0}
-    h1{font-size:34px;margin:0 0 4px}
-    .subtitle{color:#94a3b8;margin-bottom:28px}
+    h1{font-size:34px;margin:0 0 4px;line-height:1.1}
+    .subtitle{color:#94a3b8;margin:0}
+    .hero{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:22px}
+    .controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;color:#94a3b8;font-size:13px}
+    .live-dot{display:inline-block;width:9px;height:9px;border-radius:999px;background:#22c55e;box-shadow:0 0 10px #22c55e;margin-right:6px}
     .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;margin-bottom:22px}
+    .dist-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-bottom:22px}
     .card{background:#1e293b;border:1px solid #334155;border-radius:16px;padding:20px}
     .card h3{margin:0;color:#94a3b8;font-size:13px;text-transform:uppercase;letter-spacing:.04em}
     .big{font-size:34px;font-weight:700;margin-top:10px}
     .section{margin-top:28px}
     select,button{padding:10px;border-radius:8px;border:1px solid #334155;background:#1e293b;color:white;margin-right:8px;margin-bottom:8px}
-    button{cursor:pointer;background:#7c3aed;border-color:#7c3aed}
+    button{cursor:pointer;background:#7c3aed;border-color:#7c3aed;font-weight:700}
+    button.secondary{background:#1e293b;border-color:#334155;color:#cbd5e1}
     button:disabled{opacity:.4;cursor:not-allowed}
     table{width:100%;border-collapse:collapse;margin-top:16px;background:#1e293b;border-radius:12px;overflow:hidden;font-size:13px}
     th,td{padding:10px;border-bottom:1px solid #334155;text-align:left;vertical-align:top}
@@ -26,35 +32,75 @@
     .table-wrap{overflow-x:auto}
     .status{margin:12px 0 0;color:#94a3b8;font-size:13px}
     .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#334155;color:#e2e8f0;font-size:12px}
-    .pager{display:flex;align-items:center;gap:10px;margin-top:14px;color:#94a3b8;font-size:13px}
+    .pager{display:flex;align-items:center;gap:10px;margin-top:14px;color:#94a3b8;font-size:13px;flex-wrap:wrap}
+    .banner{display:none;background:#13243a;border:1px solid #2563eb;color:#93c5fd;border-radius:12px;padding:12px 16px;margin-bottom:18px;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .banner.show{display:flex}
+    .dist-scroll{max-height:420px;overflow-y:auto;padding-right:8px}
+    .top-deal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:16px}
+    .deal-tile{background:#0f172a;border:1px solid #334155;border-radius:14px;padding:14px}
+    .deal-title{font-weight:700;margin-bottom:8px;line-height:1.3}
+    .deal-meta{color:#94a3b8;font-size:13px;line-height:1.5}
+    .filter-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;align-items:center}
+    .filter-grid select,.filter-grid button{width:100%;margin:0}
+
+    @media(max-width:760px){
+      body{padding:18px}
+      h1{font-size:26px}
+      .hero{display:block}
+      .controls{justify-content:flex-start;margin-top:14px}
+      .card{padding:16px;border-radius:14px}
+      .big{font-size:28px}
+      .dist-grid{grid-template-columns:1fr}
+      .grid{grid-template-columns:1fr}
+      th,td{font-size:12px;padding:8px}
+      .filter-grid{grid-template-columns:1fr}
+    }
   </style>
 </head>
 
 <body>
-  <h1>Deal Sourcing Pipeline</h1>
-  <div class="subtitle">Business-for-sale Deals - March 2, 2026 - onwards</div>
+  <div class="hero">
+    <div>
+      <h1>Deal Sourcing Pipeline</h1>
+      <div class="subtitle">Business-for-sale Deals - March 2, 2026 - onwards</div>
+    </div>
+    <div class="controls">
+      <span><span class="live-dot"></span>Auto-refresh 30 min</span>
+      <span class="pill" id="lastUpdated">Updated: -</span>
+      <button onclick="loadDeals(true)">Refresh Now</button>
+    </div>
+  </div>
+
+  <div class="banner" id="newDataBanner">
+    <div><strong>New data detected.</strong> Dashboard has refreshed from Google Sheets.</div>
+    <button class="secondary" onclick="hideBanner()">Dismiss</button>
+  </div>
 
   <div class="grid">
-    <div class="card"><h3>📊 Total Deals</h3><div class="big" id="totalDeals">-</div></div>
-    <div class="card"><h3>✅ Active Deals</h3><div class="big" id="activeDeals">-</div></div>
-    <div class="card"><h3>🔒 Closed Deals</h3><div class="big" id="closedDeals">-</div></div>
+    <div class="card"><h3>Total Deals</h3><div class="big" id="totalDeals">-</div></div>
+    <div class="card"><h3>Active Deals</h3><div class="big" id="activeDeals">-</div></div>
+    <div class="card"><h3>Closed Deals</h3><div class="big" id="closedDeals">-</div></div>
+    <div class="card"><h3>Top Score Active</h3><div class="big" id="topScore">-</div></div>
   </div>
 
   <div class="card">
     <h3>Filters</h3><br>
-    <select id="stateFilter"></select>
-    <select id="industryFilter"></select>
-    <select id="scoreFilter"></select>
-    <button onclick="resetFilters()">Reset Filters</button>
+    <div class="filter-grid">
+      <select id="stateFilter"></select>
+      <select id="industryFilter"></select>
+      <select id="scoreFilter"></select>
+      <select id="askingPriceFilter"></select>
+      <select id="cashFlowFilter"></select>
+      <button onclick="resetFilters()">Reset Filters</button>
+    </div>
     <div class="status" id="statusText">Loading data...</div>
   </div>
 
-  <div class="section grid">
-    <div class="card"><h3>📍 State Distribution</h3><div id="stateDist"></div></div>
-    <div class="card"><h3>🏭 Industry Distribution</h3><div id="industryDist"></div></div>
-    <div class="card"><h3>🔎 Sub-Industry / Niche</h3><div id="subIndustryDist"></div></div>
-    <div class="card"><h3>🏢 Business Type</h3><div id="businessTypeDist"></div></div>
-    <div class="card"><h3>📝 Reason for Sale</h3><div id="reasonDist"></div></div>
+  
+  </div>
+
+  </div>
+    <div class="card"><h3>Reason for Sale</h3><div class="dist-scroll" id="reasonDist"></div></div>
   </div>
 
   <div class="section card">
@@ -78,15 +124,23 @@ let currentPages = {
   activeTable: 1,
   closedTable: 1
 };
+let filtersReady = false;
 
 const ROWS_PER_PAGE = 5;
+const AUTO_REFRESH_MS = 30 * 60 * 1000;
 
 function clean(v){
-  return v === undefined || v === null || v === "" ? "Unknown" : v;
+  return v === undefined || v === null || String(v).trim() === "" ? "Unknown" : String(v).trim();
 }
 
 function blankIfEmpty(v){
-  return v === undefined || v === null || v === "" ? "" : v;
+  return v === undefined || v === null || String(v).trim() === "" ? "" : v;
+}
+
+function parseMoney(v){
+  if(v === undefined || v === null || v === "") return null;
+  const n = Number(String(v).replace(/[^0-9.-]/g,""));
+  return isNaN(n) ? null : n;
 }
 
 function formatDate(v){
@@ -101,9 +155,8 @@ function formatDate(v){
 }
 
 function money(v){
-  if(v === undefined || v === null || v === "") return "";
-  const n = Number(String(v).replace(/[^0-9.-]/g,""));
-  return isNaN(n) ? v : "$" + n.toLocaleString();
+  const n = parseMoney(v);
+  return n === null ? blankIfEmpty(v) : "$" + n.toLocaleString();
 }
 
 function twoDecimals(v){
@@ -129,34 +182,81 @@ function dateValue(d){
   return new Date(d["Date Added"] || 0).getTime() || 0;
 }
 
-async function loadDeals(){
-  try{
-    const response = await fetch(API_URL);
-    const data = await response.json();
+function scoreValue(d){
+  return Number(d["Criteria Total (6 max)"] || 0);
+}
 
-    allDeals = data.deals || [];
-    filteredDeals = allDeals;
+function filterByRange(value, range){
+  if(range === "all") return true;
+  const n = parseMoney(value);
+  if(n === null) return false;
+
+  const [min, max] = range.split("-").map(v => v === "max" ? Infinity : Number(v));
+  return n >= min && n < max;
+}
+
+async function loadDeals(manualRefresh = false){
+  try{
+    document.getElementById("statusText").innerText = manualRefresh ? "Refreshing data..." : "Loading data...";
+
+    const response = await fetch(API_URL + "?t=" + Date.now());
+    const data = await response.json();
+    const nextDeals = data.deals || [];
+
+    const previousCount = Number(localStorage.getItem("dealDashboardCount") || 0);
+    allDeals = nextDeals;
+    localStorage.setItem("dealDashboardCount", allDeals.length);
 
     setupFilters();
-    render();
+    applyFilters(false);
+    updateLastUpdated();
 
-    document.getElementById("statusText").innerText = "Connected. Showing " + allDeals.length + " deals.";
+    if(previousCount && previousCount !== allDeals.length){
+      showBanner();
+    }
+
+    document.getElementById("statusText").innerText = "Connected. Showing " + filteredDeals.length + " of " + allDeals.length + " deals.";
   }catch(e){
     document.getElementById("statusText").innerText = "Error loading data: " + e.message;
   }
 }
 
-function setupFilters(){
-  fillSelect("stateFilter", "All States", "State");
-  fillSelect("industryFilter", "All Industries", "Industry");
-  fillScoreFilter();
-
-  ["stateFilter","industryFilter","scoreFilter"].forEach(id=>{
-    document.getElementById(id).addEventListener("change", applyFilters);
-  });
+function updateLastUpdated(){
+  document.getElementById("lastUpdated").innerText = "Updated: " + new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
 }
 
-function fillSelect(id, label, field){
+function showBanner(){
+  document.getElementById("newDataBanner").classList.add("show");
+}
+
+function hideBanner(){
+  document.getElementById("newDataBanner").classList.remove("show");
+}
+
+function setupFilters(){
+  const current = {
+    state: document.getElementById("stateFilter").value || "all",
+    industry: document.getElementById("industryFilter").value || "all",
+    score: document.getElementById("scoreFilter").value || "all",
+    askingPrice: document.getElementById("askingPriceFilter").value || "all",
+    cashFlow: document.getElementById("cashFlowFilter").value || "all"
+  };
+
+  fillSelect("stateFilter", "All States", "State", current.state);
+  fillSelect("industryFilter", "All Industries", "Industry", current.industry);
+  fillScoreFilter(current.score);
+  fillMoneyFilter("askingPriceFilter", "All Asking Prices", current.askingPrice);
+  fillMoneyFilter("cashFlowFilter", "All Cash Flow / SDE", current.cashFlow);
+
+  if(!filtersReady){
+    ["stateFilter","industryFilter","scoreFilter","askingPriceFilter","cashFlowFilter"].forEach(id=>{
+      document.getElementById(id).addEventListener("change", () => applyFilters(true));
+    });
+    filtersReady = true;
+  }
+}
+
+function fillSelect(id, label, field, selectedValue = "all"){
   const select = document.getElementById(id);
   const values = [...new Set(allDeals.map(d => clean(d[field])))]
     .filter(v => v !== "Unknown")
@@ -164,11 +264,14 @@ function fillSelect(id, label, field){
 
   select.innerHTML = `<option value="all">${label}</option>`;
   values.forEach(v => {
-    select.innerHTML += `<option value="${String(v).replace(/"/g,'&quot;')}">${v}</option>`;
+    const safe = String(v).replace(/"/g,'&quot;');
+    select.innerHTML += `<option value="${safe}">${v}</option>`;
   });
+
+  select.value = [...select.options].some(o => o.value === selectedValue) ? selectedValue : "all";
 }
 
-function fillScoreFilter(){
+function fillScoreFilter(selectedValue = "all"){
   document.getElementById("scoreFilter").innerHTML = `
     <option value="all">All Scores</option>
     <option value="6">6</option>
@@ -176,45 +279,72 @@ function fillScoreFilter(){
     <option value="4">4+</option>
     <option value="3">3+</option>
   `;
+  document.getElementById("scoreFilter").value = selectedValue;
 }
 
-function applyFilters(){
+function fillMoneyFilter(id, label, selectedValue = "all"){
+  const select = document.getElementById(id);
+  select.innerHTML = `
+    <option value="all">${label}</option>
+    <option value="0-100000">Under $100K</option>
+    <option value="100000-250000">$100K - $250K</option>
+    <option value="250000-500000">$250K - $500K</option>
+    <option value="500000-1000000">$500K - $1M</option>
+    <option value="1000000-2000000">$1M - $2M</option>
+    <option value="2000000-max">$2M+</option>
+  `;
+  select.value = [...select.options].some(o => o.value === selectedValue) ? selectedValue : "all";
+}
+
+function applyFilters(resetPage = true){
   const state = document.getElementById("stateFilter").value;
   const industry = document.getElementById("industryFilter").value;
   const scoreMin = document.getElementById("scoreFilter").value;
+  const askingPriceRange = document.getElementById("askingPriceFilter").value;
+  const cashFlowRange = document.getElementById("cashFlowFilter").value;
 
   filteredDeals = allDeals.filter(d => {
     if(state !== "all" && clean(d["State"]) !== state) return false;
     if(industry !== "all" && clean(d["Industry"]) !== industry) return false;
-    if(scoreMin !== "all" && Number(d["Criteria Total (6 max)"] || 0) < Number(scoreMin)) return false;
+    if(scoreMin !== "all" && scoreValue(d) < Number(scoreMin)) return false;
+    if(!filterByRange(d["Asking Price"], askingPriceRange)) return false;
+    if(!filterByRange(d["Cash Flow / SDE"], cashFlowRange)) return false;
     return true;
   });
 
-  currentPages.activeTable = 1;
-  currentPages.closedTable = 1;
+  if(resetPage){
+    currentPages.activeTable = 1;
+    currentPages.closedTable = 1;
+  }
 
   render();
+  document.getElementById("statusText").innerText = "Connected. Showing " + filteredDeals.length + " of " + allDeals.length + " deals.";
 }
 
 function resetFilters(){
   document.getElementById("stateFilter").value = "all";
   document.getElementById("industryFilter").value = "all";
   document.getElementById("scoreFilter").value = "all";
+  document.getElementById("askingPriceFilter").value = "all";
+  document.getElementById("cashFlowFilter").value = "all";
 
-  filteredDeals = allDeals;
   currentPages.activeTable = 1;
   currentPages.closedTable = 1;
-
-  render();
+  applyFilters(false);
 }
 
 function render(){
   const active = filteredDeals.filter(isActive).sort((a,b)=>dateValue(b)-dateValue(a));
   const closed = filteredDeals.filter(isClosed).sort((a,b)=>dateValue(b)-dateValue(a));
+  const topActiveScore = active.length ? Math.max(...active.map(scoreValue)) : 0;
 
   document.getElementById("totalDeals").innerText = filteredDeals.length;
   document.getElementById("activeDeals").innerText = active.length;
   document.getElementById("closedDeals").innerText = closed.length;
+  document.getElementById("topScore").innerText = topActiveScore || "-";
+
+  renderTopDeals("latestDeals", active.slice(0,5));
+  renderTopDeals("highestScoreDeals", [...active].sort((a,b)=>scoreValue(b)-scoreValue(a) || dateValue(b)-dateValue(a)).slice(0,5));
 
   renderDistribution("stateDist", "State");
   renderDistribution("industryDist", "Industry");
@@ -224,6 +354,25 @@ function render(){
 
   renderDealTable("activeTable", "activePager", active);
   renderDealTable("closedTable", "closedPager", closed);
+}
+
+function renderTopDeals(id, deals){
+  const box = document.getElementById(id);
+  if(!deals.length){
+    box.innerHTML = `<span class="muted">No active deals found.</span>`;
+    return;
+  }
+
+  box.innerHTML = deals.map(d => `
+    <div class="deal-tile">
+      <div class="deal-title">${clean(d["Business Name / Headline"])}</div>
+      <div class="deal-meta">
+        ${formatDate(d["Date Added"])} | ${clean(d["State"])} | ${clean(d["Industry"])}<br>
+        Asking: ${money(d["Asking Price"])} | SDE: ${money(d["Cash Flow / SDE"])}<br>
+        Score: <span class="pill">${blankIfEmpty(d["Criteria Total (6 max)"]) || "-"}</span>
+      </div>
+    </div>
+  `).join("");
 }
 
 function renderDistribution(id, field){
@@ -237,8 +386,7 @@ function renderDistribution(id, field){
   });
 
   const rows = Object.entries(counts)
-    .sort((a,b)=>b[1]-a[1])
-    .slice(0,8);
+    .sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0]));
 
   box.innerHTML = rows.length ? rows.map(([name,count]) => {
     const pct = ((count / total) * 100).toFixed(1);
@@ -281,6 +429,7 @@ function renderDealTable(tableId, pagerId, deals){
         <th>Engaging</th>
         <th>Actionable</th>
         <th>Score Total</th>
+        <th>Reason for Sale</th>
         <th>One-Line Summary</th>
       </tr>
     </thead>
@@ -303,6 +452,7 @@ function renderDealTable(tableId, pagerId, deals){
           <td>${blankIfEmpty(d["ENGAGING"])}</td>
           <td>${blankIfEmpty(d["ACTIONABLE"])}</td>
           <td><span class="pill">${blankIfEmpty(d["Criteria Total (6 max)"])}</span></td>
+          <td>${clean(d["Reason for Sale"])}</td>
           <td>${clean(d["One-Line Deal Summary"])}</td>
         </tr>
       `).join("")}
@@ -322,6 +472,7 @@ function changePage(tableId, direction){
 }
 
 loadDeals();
+setInterval(() => loadDeals(false), AUTO_REFRESH_MS);
 </script>
 </body>
 </html>
