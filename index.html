@@ -81,6 +81,10 @@
       .chart-wrap{height:420px}
     }
 
+  
+    table a{color:#c4b5fd;text-decoration:none;font-weight:700}
+    table a:hover{text-decoration:underline}
+
   </style>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -365,20 +369,20 @@ function resetFilters(){
   document.getElementById("askingPriceFilter").value = "all";
   document.getElementById("cashFlowFilter").value = "all";
 
+  filteredDeals = allDeals;
   currentPages.activeTable = 1;
   currentPages.closedTable = 1;
-  applyFilters(false);
+
+  render();
 }
 
 function render(){
   const active = filteredDeals.filter(isActive).sort((a,b)=>dateValue(b)-dateValue(a));
   const closed = filteredDeals.filter(isClosed).sort((a,b)=>dateValue(b)-dateValue(a));
-  const topActiveScore = active.length ? Math.max(...active.map(scoreValue)) : 0;
 
   document.getElementById("totalDeals").innerText = filteredDeals.length;
   document.getElementById("activeDeals").innerText = active.length;
   document.getElementById("closedDeals").innerText = closed.length;
-
 
   renderDistribution("stateDist", "State");
   renderDistribution("businessTypeDist", "Business Type (Physical / Online / Hybrid)");
@@ -509,6 +513,37 @@ function renderDealTable(tableId, pagerId, deals){
   const start = (currentPage - 1) * ROWS_PER_PAGE;
   const visibleDeals = deals.slice(start, start + ROWS_PER_PAGE);
 
+  if(deals.length === 0){
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>Date Added</th>
+          <th>Business Name</th>
+          <th>State</th>
+          <th>Industry</th>
+          <th>Asking Price</th>
+          <th>Revenue</th>
+          <th>DAS</th>
+          <th>Cash Flow/SDE</th>
+          <th>Payback Years</th>
+          <th>Strong Cash Flow</th>
+          <th>Scalable</th>
+          <th>Simple</th>
+          <th>Overlooked</th>
+          <th>Engaging</th>
+          <th>Actionable</th>
+          <th>Score Total</th>
+          <th>One-Line Summary</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td colspan="17" class="muted">No deals match the selected filters.</td></tr>
+      </tbody>
+    `;
+    pager.innerHTML = `<span>Page 0 of 0 | Showing 0 of 0</span>`;
+    return;
+  }
+
   table.innerHTML = `
     <thead>
       <tr>
@@ -536,7 +571,7 @@ function renderDealTable(tableId, pagerId, deals){
       ${visibleDeals.map(d => `
         <tr>
           <td>${formatDate(d["Date Added"])}</td>
-          <td>${clean(d["Business Name / Headline"])}</td>
+          <td>${linkedBusinessName(d)}</td>
           <td>${clean(d["State"])}</td>
           <td>${clean(d["Industry"])}</td>
           <td>${money(d["Asking Price"])}</td>
